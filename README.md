@@ -24,17 +24,18 @@ Please find the associated paper with the code:
 
 ## Installation
 
-Requirements:
-- Python >= 3.7
-- Scipy >= 1.6.0
-- NumPy
-- Matplotlib
-- IPython
+You can clone the repository with:
+```sh
+git clone https://github.com/annatbui/ion-cdft.git
+```
 
-Simply clone the repository:
-   ```sh
-   git clone https://github.com/annatbui/ion-cdft.git
-   ```
+For training and evaluating the model, TensorFlow/Keras is used preferably with a GPU.
+To create a conda environment containing the required packages 
+
+```sh
+conda env create -f environment.yml
+```
+
 
 ## License
 
