@@ -1,6 +1,5 @@
 # ion-cdft
 
-Code to implement LCW-cDFT for solvation
 
 ## About the code
 
@@ -18,9 +17,6 @@ Please find the associated paper with the code:
 * `models`: Keras models obtained from training.
 * `cdft`: Performing cDFT calculation for structure and thermodynamics of the mimic SR and the full LR systems.
 
-## Description
-
-
 
 ## Installation
 
@@ -29,8 +25,8 @@ You can clone the repository with:
 git clone https://github.com/annatbui/ion-cdft.git
 ```
 
-For training and evaluating the model, TensorFlow/Keras is used preferably with a GPU.
-To create a conda environment containing the required packages 
+For training and evaluating the model, *TensorFlow/Keras* is used, preferably with a GPU.
+To create a *conda* environment containing the required packages 
 
 ```sh
 conda env create -f environment.yml
