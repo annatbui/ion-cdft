@@ -346,15 +346,15 @@ def minimise_SR_twotype(model_H, model_O, zbins, muloc_H, muloc_O, input_bins=33
     return None, None, None #zbins, best_rho_H, best_rho_O
 
 
-def mu_correction(q, sigma, temp):
+def mu_correction(q, kappa_inv, temp):
     prefactor = const.elementary_charge**2 /(4 * const.pi * const.epsilon_0 * 1e-10 )
     beta = 1/ (const.Boltzmann * temp) 
 
-    first = - q**2 / (sigma * np.pi**0.5  )
+    first = - q**2 / (kappa_inv * np.pi**0.5  )
     return prefactor*first*beta
 
 def minimise_LR_onetype(model, zbins, muloc, 
-                        q, sigma, temp, dielectric,
+                        q, kappa_inv, temp, dielectric,
                         initial_guess=0.05, input_bins=1001, plot=True, maxiter=10000, 
                         alpha_initial=1e-6, alpha_updates=None, 
                         print_every=1000, plot_every=1000, tolerance=5e-6):
@@ -418,11 +418,11 @@ def minimise_LR_onetype(model, zbins, muloc,
         # restructuring electrostatic potential
         charge_density = rho * q - np.mean(rho) * q 
         kbins, n_k = lmft.fourier_transform(zbins, charge_density, kbins)
-        restructuring_potential = lmft.restructure_electrostatic_potential(n_k, kbins, zbins, sigma) * prefactor_restructure
+        restructuring_potential = lmft.restructure_electrostatic_potential(n_k, kbins, zbins, kappa_inv) * prefactor_restructure
         
         # chemical potential correction
         rho_tot = np.mean(rho)
-        mu_correction = mu_correction_ocp(rho_tot, q_abs, sigma, temp) * np.ones_like(zbins)
+        mu_correction = mu_correction_ocp(rho_tot, q_abs, kappa_inv, temp) * np.ones_like(zbins)
         
         c1_LR = c1_pred_SR - mu_correction - q * restructuring_potential
         
@@ -455,7 +455,7 @@ def minimise_LR_onetype(model, zbins, muloc,
     return None, None
 
 def minimise_LR_twotype(model_H, model_O, zbins, muloc_H, muloc_O,
-                        q_H, q_O, sigma, temp, dielectric,
+                        q_H, q_O, kappa_inv, temp, dielectric,
                         input_bins=667,
                         plot=True, maxiter=100000, alpha_initial=0.000001, 
                         alpha_updates=None, initial_guess=0.04,
@@ -507,7 +507,7 @@ def minimise_LR_twotype(model_H, model_O, zbins, muloc_H, muloc_O,
     q_abs = np.abs(q_H)
     
     # chemical potential correction
-    mu_H_correction = mu_correction(q_abs, sigma, temp) * np.ones_like(zbins)
+    mu_H_correction = mu_correction(q_abs, kappa_inv, temp) * np.ones_like(zbins)
     mu_O_correction = mu_H_correction    
 
 
@@ -534,7 +534,7 @@ def minimise_LR_twotype(model_H, model_O, zbins, muloc_H, muloc_O,
         # restructuring electrostatic potential
         charge_density = rho_O * q_O + rho_H * q_H
         kbins, n_k = lmft.fourier_transform(zbins, charge_density, kbins)
-        restructuring_potential = lmft.restructure_electrostatic_potential(n_k, kbins, zbins, sigma) * prefactor_restructure
+        restructuring_potential = lmft.restructure_electrostatic_potential(n_k, kbins, zbins, kappa_inv) * prefactor_restructure
         
 
         
@@ -583,16 +583,16 @@ def calculate_charge_density(rho_new, charge, L, zbins):
     n_z = rho_new * charge - background_charge_density
     return n_z
 
-def update_electrostatic_potential(n_z, zbins, dz, sigma, prefactor):
+def update_electrostatic_potential(n_z, zbins, dz, kappa_inv, prefactor):
     N = len(zbins)
     kbins = lmft.compute_wave_numbers(N, dz)
     kbins, n_k = lmft.fourier_transform(zbins, n_z, kbins)
-    lmf_z = lmft.restructure_electrostatic_potential(n_k, kbins, zbins, sigma) * prefactor
+    lmf_z = lmft.restructure_electrostatic_potential(n_k, kbins, zbins, kappa_inv) * prefactor
     return lmf_z
 
 
 def minimise_LR(model, zbins, muloc, initial_guess, 
-                             sigma=1.0, temp=300, charge=0.5, dielectric=1, 
+                             kappa_inv=1.0, temp=300, charge=0.5, dielectric=1, 
                              plot=False, maxiter=10000, 
                              alpha_initial=1e-6, alpha_updates=None, 
                              print_every=2000, plot_every=1000, tolerance=1e-5):
@@ -604,7 +604,7 @@ def minimise_LR(model, zbins, muloc, initial_guess,
     - zbins (array-like): Spatial grid points.
     - muloc (array-like): Local chemical potential
     - initial_guess (float): Initial guess for the density profile.
-    - sigma (float): Parameter for LMF calculation.
+    - kappa_inv (float): Parameter for LMF calculation.
     - temp (float): Temperature in Kelvin.
     - charge (float): Charge of the particles.
     - dielectric (float): Dielectric constant.
@@ -654,7 +654,7 @@ def minimise_LR(model, zbins, muloc, initial_guess,
         n_z = calculate_charge_density(rho_new, charge, L, zbins)
 
         # Restructure electrostatic potential
-        lmf_z = update_electrostatic_potential(n_z, zbins, dz, sigma, prefactor)
+        lmf_z = update_electrostatic_potential(n_z, zbins, dz, kappa_inv, prefactor)
         
         # correlation from trained SR model
         c1_pred = neural.c1_onetype(model, rho)

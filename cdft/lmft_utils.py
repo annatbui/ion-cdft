@@ -66,7 +66,7 @@ def inverse_fourier_transform(k, f_k, z):
 
         
 @nb.njit(fastmath=True, parallel=True)
-def restructure_electrostatic_potential(n_k, k, z, sigma):
+def restructure_electrostatic_potential(n_k, k, z, kappa_inv):
     """
     Compute the convolution of n_k with the Coulomb kernel gaussian.
 
@@ -74,7 +74,7 @@ def restructure_electrostatic_potential(n_k, k, z, sigma):
     n_k (numpy.ndarray): The Fourier-transformed charge density array.
     k (numpy.ndarray): The wavevector array.
     z (numpy.ndarray): The spatial coordinate array.
-    sigma (float): The standard deviation of the Gaussian kernel.
+    kappa_inv (float): The standard deviation of the Gaussian kernel.
 
     Returns:
     numpy.ndarray: The convolved result in the spatial domain.
@@ -86,7 +86,7 @@ def restructure_electrostatic_potential(n_k, k, z, sigma):
     n_k_nonzero = n_k[nonzero_indices]
 
     # Compute the Gaussian and Coulomb terms
-    gaussian_term = np.exp(-k_nonzero**2 * sigma**2 / 4)
+    gaussian_term = np.exp(-k_nonzero**2 * kappa_inv**2 / 4)
     coulomb_term = 4 * np.pi / k_nonzero**2 
 
     # Initialize the result array
@@ -101,7 +101,7 @@ def restructure_electrostatic_potential(n_k, k, z, sigma):
 
 
 @nb.njit(fastmath=True, parallel=True)
-def restructure_electric_field(n_k, k, z, sigma):
+def restructure_electric_field(n_k, k, z, kappa_inv):
     """
     Compute the convolution of n_k with the Coulomb kernel gaussian for electric field.
 
@@ -109,7 +109,7 @@ def restructure_electric_field(n_k, k, z, sigma):
     n_k (numpy.ndarray): The Fourier-transformed charge density array.
     k (numpy.ndarray): The wavevector array.
     z (numpy.ndarray): The spatial coordinate array.
-    sigma (float): The standard deviation of the Gaussian kernel.
+    kappa_inv (float): The standard deviation of the Gaussian kernel.
 
     Returns:
     numpy.ndarray: The convolved result in the spatial domain for the electric field.
@@ -121,7 +121,7 @@ def restructure_electric_field(n_k, k, z, sigma):
     n_k_nonzero = n_k[nonzero_indices]
 
     # Compute the Gaussian and Coulomb terms for the electric field
-    gaussian_term = np.exp(-k_nonzero**2 * sigma**2 / 4)
+    gaussian_term = np.exp(-k_nonzero**2 * kappa_inv**2 / 4)
     coulomb_term = 4 * np.pi / k_nonzero
 
     # Initialize the result array
