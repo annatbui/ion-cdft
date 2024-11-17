@@ -33,13 +33,11 @@ alpha_updates_default_twotype = {
     20: 0.00001,
     50: 0.00002,
     100: 0.00004,
-    300: 0.00005,
-    500: 0.00006,
-    1000: 0.0001,
-    1200: 0.0002,
-    1400: 0.0003,
-    1500: 0.0004,
-    1600: 0.0005,
+    200: 0.00006,
+    400: 0.0001,
+    1000: 0.0002,
+    1200: 0.0004,
+    1400: 0.0005,
     1700: 0.0006,
     1800: 0.0007,
     1900: 0.0008,
@@ -73,6 +71,14 @@ alpha_updates_default_twotype = {
     10000: 0.08,
 }
 
+alpha_restr_updates_default = {
+    1100: 0.015,
+    1200: 0.02,
+    1500: 0.05,
+    1800: 0.08,
+    2000: 0.10,
+    2200: 0.15,
+}
 def minimise_SR_onetype(model, zbins, muloc, initial_guess, input_bins=1001,
                         plot=False, maxiter=10000, 
                         alpha_initial=1e-6, alpha_updates=None, 
@@ -289,7 +295,7 @@ def minimise_SR_twotype(model_H, model_O, zbins, muloc_H, muloc_O, input_bins=33
     log_rho_O[~validO] = -np.inf
     
 
-    
+
     # Picard iteration parameter
     alpha = alpha_initial
     if alpha_updates is None:
@@ -302,6 +308,7 @@ def minimise_SR_twotype(model_H, model_O, zbins, muloc_H, muloc_O, input_bins=33
     for i in range(maxiter + 1):
         if i in alpha_updates:
             alpha = alpha_updates[i]
+        
         
         if plot and i % plot_every == 0:
             plt.plot_interactive_SR_twotype(fig, ax, zbins, rho_H, rho_O, muloc_H, muloc_O, color_count)
@@ -458,9 +465,9 @@ def minimise_LR_twotype(model_H, model_O, zbins, muloc_H, muloc_O,
                         q_H, q_O, kappa_inv, temp, dielectric,
                         input_bins=667,
                         plot=True, maxiter=100000, alpha_initial=0.000001, 
-                        alpha_updates=None, initial_guess=0.04,
+                        alpha_updates=None, alpha_restr_updates=None, initial_guess=0.04,
                         print_every=1000, plot_every=1000, tolerance=1e-5,
-                        output_dict=False):
+                        tolerance_restr = 1e-3, output_dict=False):
     """
     Calculate the density profile with neural DFT using a standard Picard iteration 
     for two types of particles for long-range interactions.
@@ -479,6 +486,12 @@ def minimise_LR_twotype(model_H, model_O, zbins, muloc_H, muloc_O,
     - alpha_updates (dict): Dictionary of iteration thresholds and corresponding 
                             alpha values to update alpha during iterations.
     - initial_guess (float): Initial guess for the density profile.
+    - print_every (int): Print the iteration number every n steps.
+    - plot_every (int): Update the plot every n steps.
+    - tolerance (float): Convergence tolerance for rho.
+    - tolerance_restr (float): Convergence tolerance for the restructuring potential.
+    
+    
 
     Returns:
     - tuple: z coordinates and density profile.
@@ -505,38 +518,37 @@ def minimise_LR_twotype(model_H, model_O, zbins, muloc_H, muloc_O,
     mu_O_correction = np.zeros_like(zbins)
     kbins = lmft.compute_wave_numbers(len(zbins), zbins[1] - zbins[0])
     q_abs = np.abs(q_H)
+    delta_restr = 1 # initial value for delta
     
     # chemical potential correction
     mu_H_correction = mu_correction(q_abs, kappa_inv, temp) * np.ones_like(zbins)
     mu_O_correction = mu_H_correction    
+   
 
 
     # Picard iteration parameter
     alpha = alpha_initial
+    alpha_restr = 0.01
     if alpha_updates is None:
         alpha_updates = alpha_updates_default_twotype
+        
+    if alpha_restr_updates is None:
+        alpha_restr_updates = alpha_restr_updates_default
     
     if plot:
-        fig, ax = plt.configure_plot(zbins)
+        fig, ax = plt.configure_4panels(zbins)
         color_count = 0
   
     for i in range(maxiter + 1):
         if i in alpha_updates:
             alpha = alpha_updates[i]
+        if i in alpha_restr_updates:
+            alpha_restr = alpha_restr_updates[i]
         
-        if plot and i % plot_every == 0:
-            plt.plot_interactive_SR_twotype(fig, ax, zbins, rho_H, rho_O, muloc_H, muloc_O, color_count)
-            color_count += 1
             
         # correlation from trained SR model
         c1_H_pred_SR, c1_O_pred_SR = neural.c1_twotype(model_H, model_O, rho_H, rho_O, input_bins, return_c2=False, output_dict=output_dict)
         
-        # restructuring electrostatic potential
-        charge_density = rho_O * q_O + rho_H * q_H
-        kbins, n_k = lmft.fourier_transform(zbins, charge_density, kbins)
-        restructuring_potential = lmft.restructure_electrostatic_potential(n_k, kbins, zbins, kappa_inv) * prefactor_restructure
-        
-
         
         c1_H_LR = c1_H_pred_SR - mu_H_correction - q_H * restructuring_potential
         c1_O_LR = c1_O_pred_SR - mu_O_correction - q_O * restructuring_potential    
@@ -552,29 +564,60 @@ def minimise_LR_twotype(model_H, model_O, zbins, muloc_H, muloc_O,
         log_rho_O = (1 - alpha) * log_rho_O + alpha * log_rho_O_new
         rho_H = np.exp(log_rho_H)
         rho_O = np.exp(log_rho_O)
-        
+
+
+
+
+        #if delta_restr > tolerance_restr:
+        charge_density = rho_O * q_O + rho_H * q_H
+        kbins, n_k = lmft.fourier_transform(zbins, charge_density, kbins)
+        restructuring_potential_new = lmft.restructure_electrostatic_potential(n_k, kbins, zbins, kappa_inv) * prefactor_restructure
         
         delta_H = np.max(np.abs(rho_H_new - rho_H))
         delta_O = np.max(np.abs(rho_O_new - rho_O))
         delta = max(delta_H, delta_O)
         
+        
+        
+        
+        delta_restr = np.max(np.abs(restructuring_potential_new - restructuring_potential))
+        if delta < 1e-2 and delta_restr > tolerance_restr:
+            restructuring_potential =  (1 - alpha_restr) * restructuring_potential + alpha_restr * restructuring_potential_new
+        else :
+            restructuring_potential = restructuring_potential_new
+        
+        
         if np.isnan(delta):
             print("Not converged: delta is NaN")
             return  None, None, None
 
-        relative_error = delta / max(np.max(rho_O), np.max(rho_H))
+        #relative_error = delta / max(np.max(rho_O), np.max(rho_H))
         
-        if i % print_every == 0:
-            print(f"Iteration {i}: delta = {delta}")
+        if plot and i % plot_every == 0:
+            charge_density = rho_O * q_O + rho_H * q_H
+            kbins, n_k = lmft.fourier_transform(zbins, charge_density, kbins)
+            restructuring_potential_temp = lmft.restructure_electrostatic_potential(n_k, kbins, zbins, kappa_inv) * prefactor_restructure
+            plt.plot_interactive_4panels(fig, ax, zbins, rho_H, rho_O,
+                                         charge_density, restructuring_potential_temp,
+                                         muloc_H, muloc_O, color_count)
+            color_count += 1
 
-        if delta < tolerance or relative_error < tolerance:
-            print(f"Converged after {i} iterations (delta = {delta})")
+        if i % print_every == 0:
+            print(f"Iteration {i}: delta_rho = {delta:.7f}, delta_restr = {delta_restr:.7f}")
+
+
+        if delta < tolerance and delta_restr < tolerance_restr:
+            print(f"=====================================================")
+            print(f"Converged after {i} iterations")
+            print(f"Final delta = {delta:.7f} [AA^-3]")
+            print(f"Final delta_restr = {delta_restr:.7f} [kT/e]")
+            
             if plot:
-                plt.plot_end_SR_twotype(zbins, rho_H, rho_O, muloc_H, muloc_O, ax)
+                plt.plot_end_4panels(zbins, rho_H, rho_O, muloc_H, muloc_O, ax)
             return zbins, rho_H, rho_O
         
-    print(f"Not converged after {maxiter} iterations (delta = {delta})")
-    return None, None, None #zbins, best_rho_H, best_rho_O
+    print(f"Not converged after {maxiter} iterations (delta = {delta:.7f})")
+    return None, None, None 
 
 def calculate_charge_density(rho_new, charge, L, zbins):
     total_number_particle = np.trapz(rho_new, zbins) 
