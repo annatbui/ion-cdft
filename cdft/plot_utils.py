@@ -76,7 +76,7 @@ def plot_interactive_4panels(fig, ax, zbins, rho_H, rho_O, charge_density,
     ax[1,0].plot(zbins, charge_density, color=color_cycle[color_count] )
     ax[0,1].plot(zbins, muloc_H, color=color_cycle[color_count] )
     ax[0,1].plot(zbins, muloc_O, ls="--", color=color_cycle[color_count] )
-    ax[1,1].plot(zbins, restructuring_potential, color=color_cycle[color_count] )
+    ax[1,1].plot(zbins, -restructuring_potential, color=color_cycle[color_count] )
     display.display(fig)
     
 
