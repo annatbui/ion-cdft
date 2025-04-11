@@ -3,6 +3,11 @@
 
 ## About the code
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/a3756a3f-a6cf-43a0-9a4d-d7aabd7aba93" width="50%">
+</p>
+
+
 This repository contains code to train and perform classical density functional theory (cDFT) for ionic fluids.
 
 ## Citation
